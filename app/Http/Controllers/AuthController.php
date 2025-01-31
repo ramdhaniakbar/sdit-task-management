@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\UserActivity;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -27,6 +28,12 @@ class AuthController extends Controller
 
         // generate token expires in 7 days
         $token = $user->createToken('auth_token');
+
+        // user activity log
+        UserActivity::create([
+            'user_id' => $user->id,
+            'activities' => $user->name . ' has been registered',
+        ]);
 
         return response()->json([
             'message' => 'User registered successfully',
@@ -59,6 +66,12 @@ class AuthController extends Controller
 
         // generate token expires in 7 days
         $token = $user->createToken('auth_token');
+
+        // user activity log
+        UserActivity::create([
+            'user_id' => $user->id,
+            'activities' => $user->name . ' has been logged in',
+        ]);
 
         return response()->json([
             'message' => 'User logged in successfully',

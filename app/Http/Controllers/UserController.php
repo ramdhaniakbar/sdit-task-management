@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\UserActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -81,6 +82,12 @@ class UserController extends Controller
         }
 
         $user->save();
+
+        // user activity log
+        UserActivity::create([
+            'user_id' => $user->id,
+            'activities' => $user->name . ' has updated their profile',
+        ]);
 
         return response()->json([
             'message' => 'User profile updated successfully',
