@@ -23,8 +23,8 @@ class Task extends Model
         'deleted_at',
     ];
 
-    public function user()
+    public function users()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsToMany(User::class);
     }
 }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\TaskUser;
+use App\Models\User;
 use App\Models\UserActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -159,6 +161,51 @@ class TaskController extends Controller
 
         return response()->json([
             'message' => 'Task deleted successfully',
+        ]);
+    }
+
+    /**
+     * Assign Task to Another User.
+     */
+    public function assign_task(Request $request, string $id)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+        ]);
+
+        // get task by id where user_id is auth id
+        $user = Auth::user();
+        $task = Task::where('id', $id)->where('user_id', $user->id)->first();
+
+        if (!$task) {
+            return response()->json([
+                'message' => 'Task not found or you do not have permission to assign this task',
+            ], 404);
+        } else if ($request->user_id == $user->id) {
+            return response()->json([
+                'message' => 'You cannot assign task to yourself',
+            ], 400);
+        } else if (TaskUser::where('task_id', $task->id)->where('user_id', $request->user_id)->exists()) {
+            return response()->json([
+                'message' => 'Task already assigned to this user',
+            ], 400);
+        }
+
+        // assign task to another user
+        $task->users()->attach($request->user_id, [
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // user activity log
+        UserActivity::create([
+            'user_id' => $user->id,
+            'activities' => $user->name . ' has been assigned a task with the title ' . $task->title . ' to user with id ' . $request->user_id,
+        ]);
+
+        return response()->json([
+            'message' => 'Task assigned successfully',
+            'data' => $task,
         ]);
     }
 }
