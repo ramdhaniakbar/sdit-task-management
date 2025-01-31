@@ -26,7 +26,7 @@ class AuthController extends Controller
         ]);
 
         // generate token expires in 7 days
-        $token = $user->createToken('auth_token')->expiresAt(Carbon::now()->addDays(7));
+        $token = $user->createToken('auth_token');
 
         return response()->json([
             'message' => 'User registered successfully',
@@ -51,12 +51,14 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
         
         // check user and password
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        } else if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Password is incorrect'], 401);
         }
 
         // generate token expires in 7 days
-        $token = $user->createToken('auth_token')->expiresAt(Carbon::now()->addDays(7));
+        $token = $user->createToken('auth_token');
 
         return response()->json([
             'message' => 'User logged in successfully',
