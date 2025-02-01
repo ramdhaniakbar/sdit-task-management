@@ -22,6 +22,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // tasks routes
     Route::apiResource('/tasks', TaskController::class);
-
     Route::post('/tasks/{id}/assign', [TaskController::class, 'assign_task'])->name('tasks.assign');
+
+    Route::get('/my-assignments', [TaskController::class, 'my_assignments'])->name('my-assignments');
+    Route::get('/assigned-tasks', [TaskController::class, 'assigned_task'])->name('assigned-task');
+
+    Route::post('/tasks/{id}/update-task-status', [TaskController::class, 'update_task_status'])->name('tasks.update-status');
 });

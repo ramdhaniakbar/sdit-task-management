@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\UserActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TaskController extends Controller
 {
@@ -170,29 +171,34 @@ class TaskController extends Controller
     public function assign_task(Request $request, string $id)
     {
         $request->validate([
-            'user_id' => 'required|exists:users,id',
+            'email' => 'required|exists:users,email',
         ]);
 
         // get task by id where user_id is auth id
         $user = Auth::user();
         $task = Task::where('id', $id)->where('user_id', $user->id)->first();
+        $assignee = User::where('email', $request->email)->first();
 
         if (!$task) {
             return response()->json([
                 'message' => 'Task not found or you do not have permission to assign this task',
             ], 404);
-        } else if ($request->user_id == $user->id) {
+        } else if (!$assignee) {
+            return response()->json([
+                'message' => 'User not found',
+            ], 404);
+        } else if ($assignee->id == $user->id) {
             return response()->json([
                 'message' => 'You cannot assign task to yourself',
             ], 400);
-        } else if (TaskUser::where('task_id', $task->id)->where('user_id', $request->user_id)->exists()) {
+        } else if (TaskUser::where('task_id', $task->id)->where('user_id', $assignee->id)->exists()) {
             return response()->json([
                 'message' => 'Task already assigned to this user',
             ], 400);
         }
 
         // assign task to another user
-        $task->users()->attach($request->user_id, [
+        $task->users()->attach($assignee->id, [
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -200,12 +206,118 @@ class TaskController extends Controller
         // user activity log
         UserActivity::create([
             'user_id' => $user->id,
-            'activities' => $user->name . ' has been assigned a task with the title ' . $task->title . ' to user with id ' . $request->user_id,
+            'activities' => $user->name . ' has been assigned a task with the title ' . $task->title . ' to ' . $assignee->name,
         ]);
 
         return response()->json([
             'message' => 'Task assigned successfully',
             'data' => $task,
+        ]);
+    }
+
+    public function my_assignments()
+    {
+        $user = Auth::user();
+
+        // check if the user is authenticated
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        // fetch tasks assigned to the user through the pivot table
+        $tasks = DB::table('tasks')
+                ->join('task_user', 'tasks.id', '=', 'task_user.task_id')
+                ->where('task_user.user_id', '=', $user->id)
+                ->select(
+                    'tasks.id',
+                    'tasks.title',
+                    'tasks.description',
+                    'tasks.due_date',
+                    'tasks.created_at',
+                    'tasks.updated_at',
+                    'task_user.status', 
+                    'task_user.created_at as assigned_at', 
+                    'task_user.updated_at as last_updated'
+                )
+                ->get();
+
+        return response()->json([
+            'message' => 'My assigned tasks retrieved successfully',
+            'data' => $tasks,
+        ]);
+    }
+
+    public function assigned_task()
+    {
+        $user = Auth::user();
+
+        // check if the user is authenticated
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        // fetch tasks that are assigned to users other than the logged-in user
+        $tasks = Task::whereHas('users', function ($query) use ($user) {
+            $query->where('user_id', '!=', $user->id);
+        })->with('users')->get();
+
+        return response()->json([
+            'message' => 'Assigned tasks retrieved successfully',
+            'data' => $tasks,
+        ]);
+    }
+
+    public function update_task_status(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|in:pending,in progress,completed',
+        ]);
+
+        $task = Task::find($id);
+
+        if (!$task) {
+            return response()->json([
+                'message' => 'Task not found or you do not have permission to assign this task',
+            ], 404);
+        }
+    
+        // check if the task is assigned to the user
+        $taskUser = $request->user()->tasks()->where('task_id', $task->id)->first();
+
+        if (!$taskUser) {
+            return response()->json([
+            'message' => 'Task not assigned to you or you do not have permission to update this task status',
+            ], 404);
+        }
+
+        // get current status from pivot table
+        $currentStatus = $taskUser->pivot->status;
+
+        // define valid status transitions
+        $validTransitions = [
+            'pending' => ['in progress'],  // pending can only go to in progress
+            'in progress' => ['completed'], // in progress can only go to completed
+            'completed' => [] // completed is a final state
+        ];
+
+        // check if the status transition is valid
+        if (!in_array($request->status, $validTransitions[$currentStatus])) {
+            return response()->json([
+                'message' => "Invalid status transition. You can only change status from '$currentStatus' to '" . implode("', '", $validTransitions[$currentStatus]) . "'",
+            ], 400);
+        }
+
+        // update task status in the pivot table
+        $request->user()->tasks()->updateExistingPivot($task->id, ['status' => $request->status]);
+
+        // user activity log
+        UserActivity::create([
+            'user_id' => $request->user()->id,
+            'activities' => $request->user()->name . ' updated task ' . $task->title . ' status to ' . $request->status,
+        ]);
+
+        return response()->json([
+            'message' => 'Your task status has been updated.',
         ]);
     }
 }

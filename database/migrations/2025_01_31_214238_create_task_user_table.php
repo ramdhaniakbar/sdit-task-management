@@ -21,6 +21,7 @@ return new class extends Migration
                     ->constrained()
                     ->onUpdate('cascade')
                     ->onDelete('cascade');
+            $table->enum('status', ['pending', 'in progress', 'completed'])->default('pending');
             $table->timestamps();
         });
     }
