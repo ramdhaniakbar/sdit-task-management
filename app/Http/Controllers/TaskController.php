@@ -19,7 +19,7 @@ class TaskController extends Controller
     {
         $user = Auth::user();
 
-        $tasks = Task::where('user_id', $user->id)->get();
+        $tasks = Task::where('user_id', $user->id)->paginate(10);
 
         return response()->json([
             'message' => 'Tasks list',
@@ -247,7 +247,7 @@ class TaskController extends Controller
                     'task_user.created_at as assigned_at', 
                     'task_user.updated_at as last_updated'
                 )
-                ->get();
+                ->paginate(10);
 
         return response()->json([
             'message' => 'My assigned tasks retrieved successfully',
@@ -267,7 +267,7 @@ class TaskController extends Controller
         // fetch tasks that are assigned to users other than the logged-in user
         $tasks = Task::whereHas('users', function ($query) use ($user) {
             $query->where('user_id', '!=', $user->id);
-        })->with('users')->get();
+        })->with('users')->paginate(10);
 
         return response()->json([
             'message' => 'Assigned tasks retrieved successfully',
