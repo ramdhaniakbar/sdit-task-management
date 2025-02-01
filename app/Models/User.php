@@ -64,4 +64,9 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Task::class)->withPivot('status')->withTimestamps();
     }
+
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class, 'receiver_id');
+    }
 }

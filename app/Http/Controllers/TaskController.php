@@ -203,6 +203,14 @@ class TaskController extends Controller
             'updated_at' => now(),
         ]);
 
+        // send notification
+        $assignee->notifications()->create([
+            'sender_id' => $user->id,
+            'receiver_id' => $assignee->id,
+            'status' => 'unread',
+            'note' => 'You have been assigned a task with the title ' . $task->title,
+        ]);
+
         // user activity log
         UserActivity::create([
             'user_id' => $user->id,
