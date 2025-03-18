@@ -2,22 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AuthRequest\LoginUserRequest;
+use App\Http\Requests\AuthRequest\RegisterUserRequest;
 use App\Models\User;
 use App\Models\UserActivity;
 use Carbon\Carbon;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function register(Request $request)
+    public function register(RegisterUserRequest $request)
     {
         // validate request
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
 
         // create new user
         $user = User::create([
@@ -36,6 +34,7 @@ class AuthController extends Controller
         ]);
 
         return response()->json([
+            'status' => 201,
             'message' => 'User registered successfully',
             'data' => [
                 'user' => $user,
@@ -46,22 +45,26 @@ class AuthController extends Controller
         ], 201);
     }
 
-    public function login(Request $request)
+    public function login(LoginUserRequest $request)
     {
         // validate request
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
 
         // get user
-        $user = User::where('email', $request->email)->first();
+        $user = User::where('email', $request->email)
+            ->select('id', 'name', 'email', 'password', 'phone', 'photo', 'date_of_birth', 'gender', 'address', 'status')
+            ->first();
         
         // check user and password
         if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
+            return response()->json([
+                'status' => 404,
+                'message' => 'User not found'
+            ], 404);
         } else if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Password is incorrect'], 401);
+            return response()->json([
+                'status' => 401,
+                'message' => 'Password is incorrect'
+            ], 401);
         }
 
         // generate token expires in 7 days
@@ -74,6 +77,7 @@ class AuthController extends Controller
         ]);
 
         return response()->json([
+            'status' => 200,
             'message' => 'User logged in successfully',
             'data' => [
                 'user' => $user,
@@ -86,9 +90,11 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        // Delete the current access token
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
+            'status' => 200,
             'message' => 'Successfully logged out'
         ], 200);
     }

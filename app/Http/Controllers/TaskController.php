@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\TaskRequest\AssignTaskRequest;
+use App\Http\Requests\TaskRequest\StoreTaskRequest;
+use App\Http\Requests\TaskRequest\UpdateTaskRequest;
+use App\Http\Requests\TaskRequest\UpdateTaskStatusRequest;
 use App\Models\Task;
 use App\Models\TaskUser;
 use App\Models\User;
@@ -22,9 +26,10 @@ class TaskController extends Controller
         $tasks = Task::where('user_id', $user->id)->paginate(10);
 
         return response()->json([
+            'status' => 200,
             'message' => 'Tasks list',
             'data' => $tasks,
-        ]);
+        ], 200);
     }
 
     /**
@@ -38,14 +43,8 @@ class TaskController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(StoreTaskRequest $request)
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'due_date' => 'required|date',
-        ]);
-
         $user = Auth::user();
 
         // create new task
@@ -63,6 +62,7 @@ class TaskController extends Controller
         ]);
 
         return response()->json([
+            'status' => 201,
             'message' => 'Task created successfully',
             'data' => $task,
         ], 201);
@@ -79,14 +79,16 @@ class TaskController extends Controller
 
         if (!$task) {
             return response()->json([
+                'status' => 404,
                 'message' => 'Task not found or you do not have permission to view this task',
             ], 404);
         }
 
         return response()->json([
+            'status' => 200,
             'message' => 'Task detail',
             'data' => $task,
-        ]);
+        ], 200);
     }
 
     /**
@@ -100,20 +102,15 @@ class TaskController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(UpdateTaskRequest $request, string $id)
     {
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'due_date' => 'required|date',
-        ]);
-
         // get task by id where user_id is auth id
         $user = Auth::user();
         $task = Task::where('id', $id)->where('user_id', $user->id)->first();
 
         if (!$task) {
             return response()->json([
+                'status' => 404,
                 'message' => 'Task not found or you do not have permission to update this task',
             ], 404);
         }
@@ -131,9 +128,10 @@ class TaskController extends Controller
         ]);
 
         return response()->json([
+            'status' => 200,
             'message' => 'Task updated successfully',
             'data' => $task,
-        ]);
+        ], 200);
     }
 
     /**
@@ -147,6 +145,7 @@ class TaskController extends Controller
 
         if (!$task) {
             return response()->json([
+                'status' => 404,
                 'message' => 'Task not found or you do not have permission to delete this task',
             ], 404);
         }
@@ -161,19 +160,16 @@ class TaskController extends Controller
         ]);
 
         return response()->json([
+            'status' => 200,
             'message' => 'Task deleted successfully',
-        ]);
+        ], 200);
     }
 
     /**
      * Assign Task to Another User.
      */
-    public function assign_task(Request $request, string $id)
+    public function assign_task(AssignTaskRequest $request, string $id)
     {
-        $request->validate([
-            'email' => 'required|exists:users,email',
-        ]);
-
         // get task by id where user_id is auth id
         $user = Auth::user();
         $task = Task::where('id', $id)->where('user_id', $user->id)->first();
@@ -181,18 +177,22 @@ class TaskController extends Controller
 
         if (!$task) {
             return response()->json([
+                'status' => 404,
                 'message' => 'Task not found or you do not have permission to assign this task',
             ], 404);
         } else if (!$assignee) {
             return response()->json([
+                'status' => 404,
                 'message' => 'User not found',
             ], 404);
         } else if ($assignee->id == $user->id) {
             return response()->json([
+                'status' => 400,
                 'message' => 'You cannot assign task to yourself',
             ], 400);
         } else if (TaskUser::where('task_id', $task->id)->where('user_id', $assignee->id)->exists()) {
             return response()->json([
+                'status' => 400,
                 'message' => 'Task already assigned to this user',
             ], 400);
         }
@@ -218,9 +218,10 @@ class TaskController extends Controller
         ]);
 
         return response()->json([
+            'status' => 200,
             'message' => 'Task assigned successfully',
             'data' => $task,
-        ]);
+        ], 200);
     }
 
     public function my_assignments()
@@ -229,7 +230,10 @@ class TaskController extends Controller
 
         // check if the user is authenticated
         if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json([
+                'status' => 401,
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
         // fetch tasks assigned to the user through the pivot table
@@ -250,9 +254,10 @@ class TaskController extends Controller
                 ->paginate(10);
 
         return response()->json([
+            'status' => 200,
             'message' => 'My assigned tasks retrieved successfully',
             'data' => $tasks,
-        ]);
+        ], 200);
     }
 
     public function assigned_task()
@@ -261,7 +266,10 @@ class TaskController extends Controller
 
         // check if the user is authenticated
         if (!$user) {
-            return response()->json(['message' => 'Unauthorized'], 401);
+            return response()->json([
+                'status' => 401,
+                'message' => 'Unauthorized'
+            ], 401);
         }
 
         // fetch tasks that are assigned to users other than the logged-in user
@@ -270,21 +278,19 @@ class TaskController extends Controller
         })->with('users')->paginate(10);
 
         return response()->json([
+            'status' => 200,
             'message' => 'Assigned tasks retrieved successfully',
             'data' => $tasks,
-        ]);
+        ], 200);
     }
 
-    public function update_task_status(Request $request, $id)
+    public function update_task_status(UpdateTaskStatusRequest $request, $id)
     {
-        $request->validate([
-            'status' => 'required|in:pending,in progress,completed',
-        ]);
-
         $task = Task::find($id);
 
         if (!$task) {
             return response()->json([
+                'status' => 404,
                 'message' => 'Task not found or you do not have permission to assign this task',
             ], 404);
         }
@@ -294,7 +300,8 @@ class TaskController extends Controller
 
         if (!$taskUser) {
             return response()->json([
-            'message' => 'Task not assigned to you or you do not have permission to update this task status',
+                'status' => 404,
+                'message' => 'Task not assigned to you or you do not have permission to update this task status',
             ], 404);
         }
 
@@ -311,6 +318,7 @@ class TaskController extends Controller
         // check if the status transition is valid
         if (!in_array($request->status, $validTransitions[$currentStatus])) {
             return response()->json([
+                'status' => 400,
                 'message' => "Invalid status transition. You can only change status from '$currentStatus' to '" . implode("', '", $validTransitions[$currentStatus]) . "'",
             ], 400);
         }
@@ -325,7 +333,8 @@ class TaskController extends Controller
         ]);
 
         return response()->json([
+            'status' => 200,
             'message' => 'Your task status has been updated.',
-        ]);
+        ], 200);
     }
 }

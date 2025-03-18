@@ -10,9 +10,10 @@ class NotificationController extends Controller
     {
         $notifications = auth()->user()->notifications()->paginate(10);
         return response()->json([
+            'status' => 200,
             'message' => 'Successfully fetched notifications',
             'data' => $notifications,
-        ]);
+        ], 200);
     }
 
     public function mark_as_read($id)
@@ -20,13 +21,15 @@ class NotificationController extends Controller
         $notification = auth()->user()->notifications()->find($id);
         if (!$notification) {
             return response()->json([
+                'status' => 404,
                 'message' => 'Notification not found',
             ], 404);
         }
 
         $notification->update(['status' => 'read']);
         return response()->json([
+            'status' => 200,
             'message' => 'Notification marked as read',
-        ]);
+        ], 200);
     }
 }
